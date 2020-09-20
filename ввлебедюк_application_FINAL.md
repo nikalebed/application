@@ -1,5 +1,5 @@
 # Вероника Лебедюк - "DIAlog for BETter"
-### Группа: 10 - И - 3
+### Группа: 11 - И - 3
 ### Электронная почта: veronika.lebedyuk@gmail.com
 ### VK: www.vk.com/vertevniku
 
