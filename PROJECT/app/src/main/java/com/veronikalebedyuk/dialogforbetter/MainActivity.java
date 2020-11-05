@@ -4,7 +4,6 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
@@ -15,7 +14,6 @@ import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.Toast;
-
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -29,6 +27,9 @@ import com.veronikalebedyuk.dialogforbetter.classes.MealPlan;
 import com.veronikalebedyuk.dialogforbetter.classes.MedicalCritera;
 import com.veronikalebedyuk.dialogforbetter.classes.Message;
 import com.veronikalebedyuk.dialogforbetter.classes.Product;
+import com.veronikalebedyuk.dialogforbetter.databases.DatabaseHelper;
+import com.veronikalebedyuk.dialogforbetter.databases.FoodDatabaseHelper;
+import com.veronikalebedyuk.dialogforbetter.databases.UnwantedFoodDatabaseHelper;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -48,59 +49,58 @@ import java.util.List;
 import java.util.Random;
 
 public class MainActivity extends AppCompatActivity implements RecyclerVIewClickInterface {
-
-    RecyclerView rv;
-    RecyclerView rv_hints;
-    EditText et;
-    ImageButton btn;
-    MessageAdapter adapter;
-    RecyclerView.Adapter hintAdapter;
-    List<Message> messages;
-    DatabaseHelper databaseHelper;
-    FoodDatabaseHelper foodDatabaseHelper;
-    UnwantedFoodDatabaseHelper unwantedFoodDatabaseHelper;
+    private RecyclerView rv;
+    private RecyclerView rv_hints;
+    private EditText et;
+    private ImageButton btn;
+    private MessageAdapter adapter;
+    private RecyclerView.Adapter hintAdapter;
+    private List<Message> messages;
+    private DatabaseHelper databaseHelper;
+    private FoodDatabaseHelper foodDatabaseHelper;
+    private UnwantedFoodDatabaseHelper unwantedFoodDatabaseHelper;
     private DatabaseReference myRef;
-    List <MedicalCritera> criterias;
-    String[] criteriaHints;
-    String[] insulineHints;
-    String[] BlankPhrases = new String[] {
+    private List <MedicalCritera> criterias;
+    private String[] criteriaHints;
+    private String[] insulineHints;
+    private String[] BlankPhrases = new String[] {
             "Извините?", "Не понимаю :(", "Попробуйте ещё раз", "Я не знаю такой команды", "Команда не ясна" };
-    String[] timePeriodHints = new String[]{
+    private String[] timePeriodHints = new String[]{
             "неделю","месяц", "3 месяца","год"
     };
-    String[] hintsStringArray=new String[]{
+    private String[] hintsStringArray=new String[]{
             "показатель", "календарь", "расчет", "статистика", "план", "???"
     };
-    String[]chatHints = new String[]{
-            "показатель", "календарь", "расчет", "статистика", "план", "???"};
-    String calendarHints[] = new String[] {
+    private String[]chatHints = new String[]{
+            "показатель", "календарь", "расчет", "статистика", "план","???"};
+    private String[] calendarHints = new String[] {
             "добавить событие/удалить событие", "???" };
-    String yesnoHints[] = new String[] {
+    private String[] yesnoHints = new String[] {
             "да", "нет" };
-
-    double PORTION_SIZE;
-    double SINGLE_XE_PORTION;
-    double EXTRA;
-    int WRONG_COMMAND_CNT;
-    int COMMAND_TYPE;
-    int ANSWER_STEP;
-    int INSULINE_TYPE;
-    int HEIGHT;
-    int WEIGHT;
-    public int FIS_ACTIVITY_LEVEL;
-    public int BODY_INDEX;
-    public int DAY_NORM;
-    double CURRENT_INS_VALUE;
-    long STAT_PERIOD_BEGIN;
-    String EMAIL;
-    String NAME;
-    String KEY;
-    String STAT_CRITERIA;
-    SharedPreferences prefs;
-    MealPlan mealPlan;
-    Product PRODUCT;
-    DecimalFormat formater = new DecimalFormat("#.##");
-    LinearLayoutManager linearLayoutManager;
+    private double PORTION_SIZE;
+    private double SINGLE_XE_PORTION;
+    private double EXTRA;
+    private int WRONG_COMMAND_CNT;
+    private int COMMAND_TYPE;
+    private int ANSWER_STEP;
+    private int INSULINE_TYPE;
+    private int HEIGHT;
+    private int WEIGHT;
+    private int FIS_ACTIVITY_LEVEL;
+    private int BODY_INDEX;
+    private int DAY_NORM;
+    private double CURRENT_INS_VALUE;
+    private long STAT_PERIOD_BEGIN;
+    private String EMAIL;
+    private String NAME;
+    private String KEY;
+    private String STAT_CRITERIA;
+    private SharedPreferences prefs;
+    private MealPlan mealPlan;
+    private Product PRODUCT;
+    private DecimalFormat formater = new DecimalFormat("#.#");
+    private LinearLayoutManager linearLayoutManager;
+    private LinearLayoutManager linearLayoutManagerHints;
 
     private void checkFirstOpen(){
         Intent intent = new Intent(this, StartActivity.class);
@@ -108,53 +108,28 @@ public class MainActivity extends AppCompatActivity implements RecyclerVIewClick
         deleteDatabase("FoodDatabase");
         deleteDatabase("StatisticsDatabase");
     }
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        rv_hints = findViewById(R.id.hints);
+        rv = findViewById(R.id.message_list);
+        btn = findViewById(R.id.btnSend);
         prefs = getSharedPreferences("prefs",MODE_PRIVATE);
         boolean firstOpen = prefs.getBoolean("first open",true);
-        Resources res = getResources();
-        String[]foods = res.getStringArray(R.array.basic_foods);
-        int[]food_values = res.getIntArray(R.array.basic_food_values);
-        foodDatabaseHelper = new FoodDatabaseHelper(this);
+        getDatabases();
         if(firstOpen) {
             checkFirstOpen();
+            String[]foods = getResources().getStringArray(R.array.basic_foods);
+            int[]food_values = getResources().getIntArray(R.array.basic_food_values);
             for(int i = 0; i<foods.length; i++){
                 foodDatabaseHelper.addData(foods[i],food_values[i]);
             }
         }
-        COMMAND_TYPE= prefs.getInt("command type",0);
-        ANSWER_STEP= prefs.getInt("answer step",0);
-        HEIGHT = prefs.getInt("height",170);
-        WEIGHT = prefs.getInt("weight",60);
-        EMAIL = prefs.getString("email","example@gmail.com");
-        FIS_ACTIVITY_LEVEL = prefs.getInt("activity level",13);
-        BODY_INDEX = prefs.getInt("body index",25);
-        DAY_NORM = prefs.getInt("day norm",1300);
-
-
-        unwantedFoodDatabaseHelper = new UnwantedFoodDatabaseHelper(this);
-        databaseHelper = new DatabaseHelper(this);
+        getPrefs();
         criterias = new ArrayList<>();
-        KEY = getSharedPreferences("prefs",MODE_PRIVATE).getString("user", "TestUser");
-        INSULINE_TYPE = getSharedPreferences("prefs",MODE_PRIVATE).getInt("insulineType", 2);
-        if(INSULINE_TYPE==0)insulineHints=new String[]{"короткий" , "ультракороткий"};
-
-        DatabaseReference r = FirebaseDatabase.getInstance().getReference("Users").child(KEY).child("name");
-        r.addListenerForSingleValueEvent(new ValueEventListener() {
-            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                NAME = dataSnapshot.getValue(String.class);
-            }
-            @Override
-            public void onCancelled(@NonNull DatabaseError databaseError) {
-
-            }
-        });
-        criteriaHints = new String[]{};
-        r = FirebaseDatabase.getInstance().getReference("Users").child(KEY).child("MedCriterias");
-        r.addListenerForSingleValueEvent(new ValueEventListener() {
+        myRef = FirebaseDatabase.getInstance().getReference("Users").child(KEY).child("MedCriterias");
+        myRef.addListenerForSingleValueEvent(new ValueEventListener() {
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                 for (DataSnapshot ds: dataSnapshot.getChildren()){
                     MedicalCritera mc = ds.getValue(MedicalCritera.class);
@@ -163,15 +138,16 @@ public class MainActivity extends AppCompatActivity implements RecyclerVIewClick
                 criteriaHints = new String[criterias.size()];
                 for(int i = 0; i<criterias.size();i++)criteriaHints[i]=criterias.get(i).getName();
             }
-
             @Override
             public void onCancelled(@NonNull DatabaseError databaseError) {
-
             }
         });
-
+        linearLayoutManagerHints = new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false);
+        rv_hints.setLayoutManager(linearLayoutManagerHints);
+        hintAdapter = new HintAdapter(this,chatHints,this);
+        hintAdapter.notifyDataSetChanged();
+        rv_hints.setAdapter(hintAdapter);
         messages = new ArrayList<>();
-        rv = (RecyclerView) findViewById(R.id.message_list);
         linearLayoutManager = new LinearLayoutManager(this);
         rv.setLayoutManager(linearLayoutManager);
         adapter = new MessageAdapter(this, messages);
@@ -196,15 +172,12 @@ public class MainActivity extends AppCompatActivity implements RecyclerVIewClick
             public void onCancelled(@NonNull DatabaseError error) {
             }
         });
-        rv_hints = (RecyclerView) findViewById(R.id.hints);
-        LinearLayoutManager linearLayoutManagerHints = new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false);
-        rv_hints.setLayoutManager(linearLayoutManagerHints);
-        hintAdapter = new HintAdapter(this,chatHints,this);
-        rv_hints.setAdapter(hintAdapter);
-        btn = (ImageButton)findViewById(R.id.btnSend);
+
         btn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                COMMAND_TYPE= prefs.getInt("command type",0);
+                ANSWER_STEP= prefs.getInt("answer step",0);
                 if(!et.getText().toString().trim().equals("")) {
                     addMessage( new Message(NAME,et.getText().toString(),"request"));
                     if (COMMAND_TYPE == 0) Answer(et.getText().toString());
@@ -218,10 +191,14 @@ public class MainActivity extends AppCompatActivity implements RecyclerVIewClick
                 linearLayoutManager.scrollToPosition(messages.size()-1);
             }
         });
-
     }
 
     public void addMessage(Message m){
+        messages.add(m);
+        myRef.push().setValue(m);
+    }
+    public void addMessage(String DIAlogMessageText){
+        Message m = new Message("DIAlog",DIAlogMessageText,"string answer");
         messages.add(m);
         myRef.push().setValue(m);
     }
@@ -230,75 +207,70 @@ public class MainActivity extends AppCompatActivity implements RecyclerVIewClick
     public void Answer(String mes) {
         if ("???".equals(mes) || WRONG_COMMAND_CNT == 3) {
             WRONG_COMMAND_CNT = 0;
-            addMessage(
-                    new Message("DIAlog", getResources().getString(R.string.first_message), "string answer"));
+            addMessage(getResources().getString(R.string.help_message));
 
         }
         else if ("показатель".equals(mes)) {
-            Message m = new Message("DIAlog","по какому критерию Вы собираетесь занести показания?","string answer");
-            addMessage(m);
+            WRONG_COMMAND_CNT = 0;
+            addMessage("по какому критерию Вы собираетесь занести показания?");
             changeCommandType(1);
-            changeHints(criteriaHints);
             changeAnswerStep(0);
+            changeHints(criteriaHints);
         }
         else if ("расчет".equalsIgnoreCase(mes)) {
+            WRONG_COMMAND_CNT = 0;
             changeCommandType(2);
             changeAnswerStep(0);
             CalculationScenario();
         }
         else if ("календарь".equalsIgnoreCase(mes)) {
+            WRONG_COMMAND_CNT = 0;
             addMessage(
                     new Message("DIAlog","current date","calendar answer"));
 
-            addMessage(
-                    new Message("DIAlog","сверьтесь с календарем выше","string answer"));
-
-            Message m = new Message("DIAlog","хотите добавить новое событие?","string answer");
-            addMessage(m);
+            addMessage("сверьтесь с календарем выше");
+            addMessage("хотите добавить новое событие?");
             changeCommandType(3);
             changeAnswerStep(0);
             changeHints(yesnoHints);
         }
         else if ("статистика".equalsIgnoreCase(mes)) {
+            WRONG_COMMAND_CNT = 0;
             databaseHelper = new DatabaseHelper(MainActivity.this);
             changeCommandType(4);
-            addMessage(
-                    new Message("DIAlog","статистику по какому критерию вы хотите получить?","string answer"));
+            addMessage("статистику по какому критерию вы хотите получить?");
             changeHints(criteriaHints);
             changeAnswerStep(0);
         }
         else if ("план".equalsIgnoreCase(mes)) {
+            WRONG_COMMAND_CNT = 0;
             changeCommandType(5);
             changeAnswerStep(prefs.getInt("plan step",-4));
             MealPlanScenario();
         }
         else{
-            WRONG_COMMAND_CNT +=1;
+            WRONG_COMMAND_CNT ++;
             Random random = new Random();
-            addMessage(
-                    new Message("DIAlog",BlankPhrases[random.nextInt(BlankPhrases.length)],"string answer"));
-
+            addMessage(BlankPhrases[random.nextInt(BlankPhrases.length)]);
         }
     }
 
     int MED_CRITERIA_TYPE;
     public void MedCriteriaScenario(){
-        et = findViewById(R.id.text_input);
         String lastUserMessage = messages.get(messages.size()-1).messageText;
         if(ANSWER_STEP == 0){
             for(int i = 0; i < criterias.size(); i++){
                 if(criterias.get(i).getName().equals(lastUserMessage)) {
                     MED_CRITERIA_TYPE = i;
-                    Message m = new Message("DIAlog", getResources().getStringArray(R.array.MediaclCriteriasInput)[MED_CRITERIA_TYPE], "string answer");
-                    addMessage(m);
+                    addMessage(criterias.get(MED_CRITERIA_TYPE).InputRequest());
                     changeAnswerStep(1);
                     et.setInputType(InputType.TYPE_CLASS_NUMBER);
                     break;
                 }
                 else if(i == criterias.size()-1){
                     changeCommandType(0);
-                        changeHints();
-                    }
+                    changeHints();
+                }
             }
         }
         else if(ANSWER_STEP == 1){
@@ -308,17 +280,27 @@ public class MainActivity extends AppCompatActivity implements RecyclerVIewClick
                 databaseHelper = new DatabaseHelper(MainActivity.this);
                 databaseHelper.addData(value, criterias.get(MED_CRITERIA_TYPE).getName());
                 String s = criterias.get(MED_CRITERIA_TYPE).Estimate(value);
-                Message m = new Message("DIAlog", s, "string answer");
-                addMessage(m);
+                addMessage(s);
                 if(criterias.get(MED_CRITERIA_TYPE).getName().equals("сахар"))CURRENT_INS_VALUE = value;
+                if(criterias.get(MED_CRITERIA_TYPE).getName().equals("вес")){
+                    double changeProportion = value/WEIGHT;
+                    if(prefs.getInt("plan step",-4)==0){
+                        prefs.edit().putInt("body index",(int)(BODY_INDEX*changeProportion)).apply();
+                        prefs.edit().putInt("day norm",(int)(DAY_NORM*changeProportion)).apply();
+                        addMessage("план питания мог быть изменен");
+                        changeCommandType(0);
+                        changeHints();
+                    }
+                    WEIGHT = (int)value;
+                    prefs.edit().putInt("weight",(int)value).apply();
+                }
                 if(s.equalsIgnoreCase("показатель значительно ниже нормы, хотите назначить визит к врачу?")||
                         s.equalsIgnoreCase("показатель значительно привышает норму, хотите назначить визит к врачу?")){
                     changeHints(yesnoHints);
                     changeAnswerStep(2);
                 }
                 else if(criterias.get(MED_CRITERIA_TYPE).getName().equals("сахар") && CURRENT_INS_VALUE>7){
-                     m = new Message("DIAlog", "хотите расчитать необходимую дозу инсулина?", "string answer");
-                    addMessage(m);
+                    addMessage("хотите расчитать необходимую дозу инсулина?");
                     changeHints(yesnoHints);
                     changeAnswerStep(3);
                 }
@@ -341,14 +323,12 @@ public class MainActivity extends AppCompatActivity implements RecyclerVIewClick
                 startActivity(i);
             }
             else if(criterias.get(MED_CRITERIA_TYPE).getName().equals("сахар") && CURRENT_INS_VALUE>3){
-                Message m = new Message("DIAlog", "хотите расчитать необходимую дозу инсулина?", "string answer");
-                addMessage(m);
+                addMessage("хотите расчитать необходимую дозу инсулина?");
                 changeHints(yesnoHints);
                 changeAnswerStep(3);
             }
             else if(criterias.get(MED_CRITERIA_TYPE).getName().equals("сахар") && CURRENT_INS_VALUE<3){
-                Message m = new Message("DIAlog", "срочно примите что-нибудь содержащее быстрые углеводы", "string answer");
-                addMessage(m);
+                addMessage("срочно примите что-нибудь содержащее быстрые углеводы");
                 changeCommandType(0);
                 changeHints();
             }
@@ -376,15 +356,13 @@ public class MainActivity extends AppCompatActivity implements RecyclerVIewClick
         Cursor cursor = foodDatabaseHelper.getData();
         EditText et = findViewById(R.id.text_input);
          if(ANSWER_STEP == 0){
-            Message m = new Message("DIAlog", "введите название съеденной пищи", "string answer");
-            addMessage(m);
+            addMessage("введите название съеденной пищи");
             changeAnswerStep(1);
         }
         else if(ANSWER_STEP == 1){
             changeHints();
             PRODUCT = new Product();
             PRODUCT.setName(lastUserMessage);
-            foodDatabaseHelper = new FoodDatabaseHelper(MainActivity.this);
             List<String>foodOptions = new ArrayList<>();
             int cnt = 0;
             while(cursor.moveToNext()){
@@ -403,14 +381,12 @@ public class MainActivity extends AppCompatActivity implements RecyclerVIewClick
                 String[] fo = new String[foodOptions.size()];
                 foodOptions.toArray(fo);
                 changeHints(fo);
-                Message m = new Message("DIAlog", "выберите вариант", "string answer");
-                addMessage(m);
+                addMessage("выберите вариант");
                 changeAnswerStep(1);
             }
             else if (cnt==0){
-                Message m = new Message("DIAlog", "к сожалению пищевая ценность порции пока не известна,\n\nвведите его массу в граммах на 1 ХЕ", "string answer");
                 et.setInputType(InputType.TYPE_CLASS_NUMBER);
-                addMessage(m);
+                addMessage("к сожалению пищевая ценность порции пока не известна,\n\nвведите его массу в граммах на 1 ХЕ");
                 changeAnswerStep(7);
             }
             else{
@@ -419,9 +395,8 @@ public class MainActivity extends AppCompatActivity implements RecyclerVIewClick
             }
         }
          else if(ANSWER_STEP == 2){
-             Message m = new Message("DIAlog", "введите размер порции в граммах", "string answer");
              et.setInputType(InputType.TYPE_CLASS_NUMBER);
-             addMessage(m);
+             addMessage("введите размер порции в граммах");
              changeAnswerStep(3);
          }
 
@@ -429,8 +404,7 @@ public class MainActivity extends AppCompatActivity implements RecyclerVIewClick
              try {
                  PORTION_SIZE = Double.parseDouble(lastUserMessage);
                  EXTRA = 2*PORTION_SIZE/SINGLE_XE_PORTION;
-                 Message m = new Message("DIAlog", "введите Ваш текущий уровень гликемии", "string answer");
-                 addMessage(m);
+                 addMessage("введите Ваш текущий уровень гликемии");
                  changeAnswerStep(4);
              } catch (NumberFormatException | NullPointerException nfe) {
                  changeCommandType(0);
@@ -441,6 +415,7 @@ public class MainActivity extends AppCompatActivity implements RecyclerVIewClick
         else if(ANSWER_STEP == 4){
              try {
                  CURRENT_INS_VALUE = Double.parseDouble(lastUserMessage);
+                 databaseHelper.addData(CURRENT_INS_VALUE,"сахар");
                  changeAnswerStep(5);
                  CalculationScenario();
 
@@ -454,21 +429,23 @@ public class MainActivity extends AppCompatActivity implements RecyclerVIewClick
         else if(ANSWER_STEP == 5){
              et.setInputType(InputType.TYPE_TEXT_FLAG_MULTI_LINE);
              if (CURRENT_INS_VALUE<5){
-                 Message m = new Message("DIAlog", "уровень сахара в крови слишком низок, чтобы корректировать его инсулином", "string answer");
-                 addMessage(m);
+                 addMessage("уровень сахара в крови слишком низок, чтобы корректировать его инсулином");
                  changeCommandType(0);
                  changeAnswerStep(0);
              }
-            else{CURRENT_INS_VALUE+=EXTRA;
-                INSULINE_TYPE = getSharedPreferences("prefs",MODE_PRIVATE).getInt("insulineType", 2);
-             if(INSULINE_TYPE==2){
-                 Message m = new Message("DIAlog", "выберите тип инсулина", "string answer");
-                 addMessage(m);
-                 changeAnswerStep(-1);
-                 changeHints(new String[]{"короткий","ультракороткий"});
+             else{
+                 CURRENT_INS_VALUE+=EXTRA;
+                 INSULINE_TYPE = getSharedPreferences("prefs",MODE_PRIVATE).getInt("insulineType", 2);
+                 if(INSULINE_TYPE==2){
+                    addMessage("выберите тип инсулина");
+                    changeAnswerStep(-1);
+                    changeHints(new String[]{"короткий","ультракороткий"});
+                 }
+                 else{
+                     changeAnswerStep(5);
+                     CalculationScenario();
+                 }
              }
-             else {changeAnswerStep(5);
-                 CalculationScenario();}}
         }
         else if(ANSWER_STEP== -1){
             if(lastUserMessage.trim().equalsIgnoreCase("короткий"))INSULINE_TYPE=0;
@@ -477,17 +454,16 @@ public class MainActivity extends AppCompatActivity implements RecyclerVIewClick
             CalculationScenario();
         }
         else if(ANSWER_STEP == 6){
-            double k;
-            int sdi = getSharedPreferences("prefs",MODE_PRIVATE).getInt("SDI",50);
-            if(INSULINE_TYPE==0) k = 83/sdi;
-            else k = 100/sdi;
-                double dose = (Math.abs(CURRENT_INS_VALUE - 7)) / k;
-                String ans = "Расчитанная доза - " + formater.format(dose) + " Ед";
-                Message m = new Message("DIAlog", ans, "string answer");
-                addMessage(m);
-                CURRENT_INS_VALUE = 0;
-                changeCommandType(0);
-                changeHints();
+             double k;
+             int sdi = getSharedPreferences("prefs",MODE_PRIVATE).getInt("SDI",50);
+             if(INSULINE_TYPE==0) k = 83/sdi;
+             else k = 100/sdi;
+             double dose = (Math.abs(CURRENT_INS_VALUE - 7)) / k;
+             String ans = "Расчитанная доза - " + formater.format(dose) + " Ед";
+             addMessage(ans);
+             CURRENT_INS_VALUE = 0;
+             changeCommandType(0);
+             changeHints();
 
         }
         else if(ANSWER_STEP == 7){
@@ -506,7 +482,6 @@ public class MainActivity extends AppCompatActivity implements RecyclerVIewClick
                 et.setInputType(InputType.TYPE_TEXT_FLAG_MULTI_LINE);
                 Answer(lastUserMessage);
             }
-
         }
     }
 
@@ -529,7 +504,7 @@ public class MainActivity extends AppCompatActivity implements RecyclerVIewClick
         if(ANSWER_STEP == 0){
             STAT_CRITERIA = lastUserMessage;
             changeAnswerStep(1);
-            addMessage(new Message("DIAlog", "вывести статистику за прошедшие...", "string answer"));
+            addMessage("вывести статистику за прошедшие...");
             changeHints(timePeriodHints);
         }
         else if(ANSWER_STEP == 1){
@@ -558,7 +533,7 @@ public class MainActivity extends AppCompatActivity implements RecyclerVIewClick
                         new Message("DIAlog",STAT_CRITERIA,"graph3"));
                 STAT_PERIOD_BEGIN = currentTIme -oneYear;
             }
-            addMessage(new Message("DIAlog", "вот визуализация, вводимых вами данных. Файл в формате excel с чиловыми данными был выслан на электронную почту", "string answer"));
+            addMessage("вот визуализация, вводимых вами данных. Файл в формате excel с чиловыми данными был выслан на электронную почту");
             sendStatisticEmail();
             changeCommandType(0);
             changeHints();
@@ -577,8 +552,7 @@ public class MainActivity extends AppCompatActivity implements RecyclerVIewClick
             BODY_INDEX = mealPlan.getBodyMassIndex();
             if(BODY_INDEX>30)mealPlan.setDayNorm(1300);
             prefs.edit().putFloat("activity level", BODY_INDEX);
-            addMessage(
-                    new Message("DIAlog","выберите уровень своей физической активности","string answer"));
+            addMessage("выберите уровень своей физической активности");
             changeHints(
                     new String[]{
                             "низкий","средний","высокий"
@@ -599,18 +573,16 @@ public class MainActivity extends AppCompatActivity implements RecyclerVIewClick
                 prefs.edit().putInt("activity level", 15).apply();
                 mealPlan.setFisActivityLevel(15);
             }
-            x = mealPlan.getKkPerKg() * WEIGHT * mealPlan.getFisActivityLevel()*0.1;
+            x = mealPlan.getKkPerKg()* WEIGHT * mealPlan.getFisActivityLevel()*0.1;
             if(mealPlan.getDayNorm()!=1300)mealPlan.setDayNorm((int) x);
             prefs.edit().putInt("day norm", mealPlan.getDayNorm()).apply();
-            addMessage(
-                    new Message("DIAlog","есть ли продукты, которые бы Вы не хотели видеть в соем плане питания?","string answer"));
+            addMessage("есть ли продукты, которые бы Вы не хотели видеть в соем плане питания?");
             changeHints(yesnoHints);
             changeAnswerStep(-2);
         }
         else if(ANSWER_STEP==-2){
             if (lastUserMessage.equalsIgnoreCase("да")){
-                addMessage(
-                        new Message("DIAlog","введите названия одного из нежелательных продуктов","string answer"));
+                addMessage("введите названия одного из нежелательных продуктов");
                 changeAnswerStep(-1);
             }
             else{
@@ -620,8 +592,7 @@ public class MainActivity extends AppCompatActivity implements RecyclerVIewClick
             }
         }
         else if(ANSWER_STEP==-5){
-            addMessage(
-                    new Message("DIAlog","есть ли ЕЩЁ продукты, которые бы Вы не хотели видеть в соем плане питания?","string answer"));
+            addMessage("есть ли ЕЩЁ продукты, которые бы Вы не хотели видеть в соем плане питания?");
             changeHints(yesnoHints);
             changeAnswerStep(-1);
         }
@@ -660,19 +631,17 @@ public class MainActivity extends AppCompatActivity implements RecyclerVIewClick
             FIS_ACTIVITY_LEVEL = prefs.getInt("activity level", 11);
             BODY_INDEX = prefs.getInt("body index", 25);
             DAY_NORM = prefs.getInt("day norm", 1300);
-            mealPlan = new MealPlan(FIS_ACTIVITY_LEVEL, BODY_INDEX,DAY_NORM);
-            Message m = new Message("DIAlog", mealPlan.createMealPlan(), "string answer");
-            addMessage(m);
+            Toast.makeText(MainActivity.this, "day norm "+ DAY_NORM,Toast.LENGTH_LONG).show();
+            mealPlan = new MealPlan(FIS_ACTIVITY_LEVEL, BODY_INDEX, DAY_NORM);
             changeAnswerStep(1);
-            m = new Message("DIAlog","предложить вариант приема пищи?", "string answer");
-            addMessage(m);
+            addMessage(mealPlan.createMealPlan());
+            addMessage("предложить вариант приема пищи?");
             changeHints(yesnoHints);
         }
         else if(ANSWER_STEP==1){
             if(lastUserMessage.equalsIgnoreCase("да")) {
-                Message m = new Message("DIAlog", "судя по часам, сейчас время " + mealPlan.mealType()
-                        + "\nмогу предложить сьесть " + foodSuggestion(), "string answer");
-                addMessage(m);
+                addMessage("судя по часам, сейчас время " + mealPlan.mealType()
+                        + "\nмогу предложить сьесть " + foodSuggestion());
                 changeAnswerStep(2);
             }
             changeCommandType(0);
@@ -743,6 +712,13 @@ public class MainActivity extends AppCompatActivity implements RecyclerVIewClick
         JavaMailWithAttachments javaMailWithAttachments = new JavaMailWithAttachments(this,EMAIL,"DIAlog for BETter статистика","", file);
         javaMailWithAttachments.execute();
     }
+
+    public void changeParameter(){
+        if(ANSWER_STEP==0){
+
+        }
+    }
+
     public String foodSuggestion(){
         Date time = new Date(System.currentTimeMillis());
         SimpleDateFormat sdf = new SimpleDateFormat("HH");
@@ -790,6 +766,24 @@ public class MainActivity extends AppCompatActivity implements RecyclerVIewClick
             hintsStringArray = chatHints;
         }
         rv_hints.setAdapter(hintAdapter);
+    }
+
+    public void getPrefs(){
+        HEIGHT = prefs.getInt("height",170);
+        WEIGHT = prefs.getInt("weight",60);
+        EMAIL = prefs.getString("email","example@gmail.com");
+        NAME = prefs.getString("name","USERNAME");
+        FIS_ACTIVITY_LEVEL = prefs.getInt("activity level",13);
+        BODY_INDEX = prefs.getInt("body index",25);
+        DAY_NORM = prefs.getInt("day norm",1300);
+        KEY = getSharedPreferences("prefs",MODE_PRIVATE).getString("user", "TestUser");
+        INSULINE_TYPE = getSharedPreferences("prefs",MODE_PRIVATE).getInt("insulineType", 2);
+        if(INSULINE_TYPE==0)insulineHints=new String[]{"короткий" , "ультракороткий"};
+    }
+    public void getDatabases(){
+        foodDatabaseHelper = new FoodDatabaseHelper(this);
+        unwantedFoodDatabaseHelper = new UnwantedFoodDatabaseHelper(this);
+        databaseHelper = new DatabaseHelper(this);
     }
 
     public void changeAnswerStep(int to){
